@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <fcntl.h>
 
 int main(int argc, char** argv) {
     if (argc < 2) {
@@ -40,7 +41,12 @@ int main(int argc, char** argv) {
     int bytes_recvd = recvfrom(sockfd, &buffer, sizeof(buffer), MSG_PEEK,
                                (struct sockaddr*) &client_addr, &s);
 
-    init_io();
+    init_io();  //Stdin non blocking
+
+    //making socket non-blocking
+    int flags = fcntl(sockfd, F_GETFL);                 //Retrieves file status flag for a given file decriptor
+    flags |= O_NONBLOCK;                                //Setting flag to be non-blocking
+    fcntl(sockfd, F_SETFL, flags);                      //Saving the changed file status flag for a given file descriptor
     listen_loop(sockfd, &client_addr, SERVER, input_io, output_io);
 
     return 0;

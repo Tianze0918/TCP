@@ -9,26 +9,23 @@
         },
         {
             "name": "Handshake: Client SYN",
-            "score": 0,
+            "score": 5,
             "max_score": 5,
-            "status": "failed",
-            "output": "Your client failed to send over a Client SYN.\n",
+            "status": "passed",
             "number": "1.1"
         },
         {
             "name": "Handshake: Server SYN-ACK",
-            "score": 0,
+            "score": 5,
             "max_score": 5,
-            "status": "failed",
-            "output": "Your server failed to send over a Server SYN-ACK.\n",
+            "status": "passed",
             "number": "1.2"
         },
         {
             "name": "Handshake: Client ACK",
-            "score": 0,
+            "score": 5,
             "max_score": 5,
-            "status": "failed",
-            "output": "Your client failed to send over a Client ACK.\n",
+            "status": "passed",
             "number": "1.3"
         },
         {
@@ -52,7 +49,7 @@
             "score": 0.0,
             "max_score": 5,
             "status": "failed",
-            "output": "Your client didn't send data back to our server correctly.\nWe inputted 10000 bytes in your client and we received 0 bytes with a percent difference of 100.0%\nYour client didn't receive data from our server correctly.\nWe sent 10000 bytes and your client received 0 bytes with a percent difference of 100.0%\n",
+            "output": "Your client didn't send data back to our server correctly.\nWe inputted 10000 bytes in your client and we received 12 bytes with a percent difference of 100.0%\nYour client didn't receive data from our server correctly.\nWe sent 10000 bytes and your client received 0 bytes with a percent difference of 100.0%\n",
             "number": "2.3"
         },
         {
@@ -68,7 +65,7 @@
             "score": 0.0,
             "max_score": 5,
             "status": "failed",
-            "output": "Your client didn't send data back to our server correctly.\nWe inputted 100000 bytes in your client and we received 0 bytes with a percent difference of 100.0%\nYour client didn't receive data from our server correctly.\nWe sent 100000 bytes and your client received 0 bytes with a percent difference of 100.0%\n",
+            "output": "Your client didn't send data back to our server correctly.\nWe inputted 100000 bytes in your client and we received 12 bytes with a percent difference of 100.0%\nYour client didn't receive data from our server correctly.\nWe sent 100000 bytes and your client received 0 bytes with a percent difference of 100.0%\n",
             "number": "2.5"
         },
         {
@@ -84,7 +81,7 @@
             "score": 0.0,
             "max_score": 5,
             "status": "failed",
-            "output": "Your client didn't send data back to our server correctly.\nWe inputted 500000 bytes in your client and we received 0 bytes with a percent difference of 100.0%\nYour client didn't receive data from our server correctly.\nWe sent 500000 bytes and your client received 0 bytes with a percent difference of 100.0%\n",
+            "output": "Your client didn't send data back to our server correctly.\nWe inputted 500000 bytes in your client and we received 12 bytes with a percent difference of 100.0%\nYour client didn't receive data from our server correctly.\nWe sent 500000 bytes and your client received 0 bytes with a percent difference of 100.0%\n",
             "number": "2.7"
         },
         {
@@ -100,13 +97,13 @@
             "score": 0.0,
             "max_score": 5,
             "status": "failed",
-            "output": "Your client didn't send data back to our server correctly.\nWe inputted 2000000 bytes in your client and we received 0 bytes with a percent difference of 100.0%\nYour client didn't receive data from our server correctly.\nWe sent 2000000 bytes and your client received 0 bytes with a percent difference of 100.0%\n",
+            "output": "Your client didn't send data back to our server correctly.\nWe inputted 2000000 bytes in your client and we received 12 bytes with a percent difference of 100.0%\nYour client didn't receive data from our server correctly.\nWe sent 2000000 bytes and your client received 0 bytes with a percent difference of 100.0%\n",
             "number": "2.9"
         }
     ],
     "leaderboard": [],
     "visibility": "visible",
-    "execution_time": "285.21",
-    "score": 0.0,
+    "execution_time": "295.64",
+    "score": 15.0,
     "test_output_format": "md"
 }

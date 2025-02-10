@@ -22,6 +22,14 @@ typedef struct Packet{
     uint8_t payload[0];         //input_buffer
 } Packet;
 
+void handle_sigint(int sig) {
+    // Flush stderr to ensure any pending error messages are printed
+    fflush(stderr);
+    // Optionally, print a custom message
+   //fprintf(stderr, "\nCaught signal %d, exiting gracefully...\n", sig);
+    // Perform other cleanup tasks if necessary
+    exit(0);  // Exit the program gracefully
+}
 
 // typedef struct {
 //     packet packets[QUEUE_SIZE];
@@ -96,7 +104,6 @@ typedef struct PacketNode {
     Packet* pkt;
     struct PacketNode* next;
     struct PacketNode* previous;
-    time_t send_time;
 } PacketNode;
 
 // The linked list maintains pointers to the head and tail.
@@ -105,9 +112,28 @@ typedef struct {
     PacketNode* tail;
 } PacketList;
 
+// Sending queue.
+typedef struct queue_node {
+    Packet* pkt;
+    struct queue_node* next;
+    struct queue_node* previous;
+    time_t send_time;
+} queue_node;
+
+// Sending queue.
+typedef struct sending_queue {
+    struct queue_node* head;
+    struct queue_node* tail;
+} sending_queue;
+
 void initPacketList(PacketList* list) {
     list->head = NULL;
     list->tail = NULL;
+}
+
+void initSendingQueue(sending_queue* sending_queue) {
+    sending_queue->head = NULL;
+    sending_queue->tail = NULL;
 }
 
 PacketNode* find(PacketList* list, uint16_t write_seq){
@@ -149,6 +175,7 @@ void output(PacketList* list, Packet* pkt, uint16_t *outputSeq, uint16_t* receiv
    while (true){
         PacketNode* found=find(list, *outputSeq);
         if (found!=NULL){
+           //fprintf(stderr, "Output function: pkt->seq = %hu, pkt->window= %hu, pkt->length =%hu, outputSeq = %hu, flowWindow = %hu\n", pkt->seq, pkt->window, pkt->length, *outputSeq, *receiver_flowWindow);
             // updating next ack seq for receiver
             *outputSeq+=1;
             // Receiver side Flow window update
@@ -162,6 +189,25 @@ void output(PacketList* list, Packet* pkt, uint16_t *outputSeq, uint16_t* receiv
    }
 }
 
+void update_input(PacketList* list,  uint16_t ack, uint16_t* currentWindowStart, uint16_t* currentWindowSize){
+    ////fprintf(stderr, "Entered update_input, currentWindowStart = %hu, pkt->ack = %hu pkt->seq = %hu, pkt->flowWindow = %hu, pkt->length = %hu, pkt->flags = %hu\n", *currentWindowStart, ack, pkt->seq, pkt->window, pkt->length, pkt->flags);
+      while (*currentWindowStart < ack){
+         
+          PacketNode* found=find(list, *currentWindowStart);
+        //fprintf(stderr, "update_input\n");
+          if (found!=NULL){
+           //fprintf(stderr, "Clearing packet seq %hu\n", *currentWindowStart);
+              *currentWindowStart+=1;
+              uint16_t packet_length=found->pkt->length;
+              *currentWindowSize-=packet_length;
+              remove_packet(list, found);
+            //fprintf(stderr, "New window size = %hu\n", *currentWindowSize);
+          }else{
+              return;
+          }
+      }
+  }
+
 void decode(Packet* pkt){
     if (pkt==NULL){
         return;
@@ -170,6 +216,7 @@ void decode(Packet* pkt){
         pkt->ack=ntohs(pkt->ack);
         pkt->length=ntohs(pkt->length);
         pkt->window=ntohs(pkt->window);
+        pkt->unused=ntohs(pkt->unused);
     }
 }
 
@@ -181,12 +228,13 @@ void encode(Packet* pkt){
         pkt->ack=htons(pkt->ack);
         pkt->length=htons(pkt->length);
         pkt->window=htons(pkt->window);
+        pkt->unused=htons(pkt->unused);
     }
 }
 
 
 // Enqueue (append) a packet pointer to the list.
-void enqueuePacket(PacketList* list, Packet* pkt, int type) {
+void enqueuePacket(PacketList* list, Packet* pkt, int type) { //type is 1 for outputbuffer, 0 for inputbuffer
     PacketNode* node = (PacketNode*)malloc(sizeof(PacketNode));
     if (!node) {
         perror("malloc for PacketNode");
@@ -197,6 +245,7 @@ void enqueuePacket(PacketList* list, Packet* pkt, int type) {
     }
     node->pkt = pkt;
     node->next = NULL;
+    node->previous = NULL;
     
     if (list->tail == NULL) {  // List is empty
         list->head = node;
@@ -206,23 +255,9 @@ void enqueuePacket(PacketList* list, Packet* pkt, int type) {
         node->previous=list->tail;
         list->tail = node;
     }
-    // fprintf(stderr, "Enqueued packet size: %u\n", node->pkt->length);
+    ////fprintf(stderr, "Enqueued packet size: %hu, seq = %hu, list tail seq = %hu \n", node->pkt->length, node->pkt->seq, list->tail->pkt->seq);
 }
 
-void update_input(PacketList* list, Packet* pkt, uint16_t* currentWindowStart, uint16_t* currentWindowSize){
-    while (*currentWindowStart < pkt->ack){
-        PacketNode* found=find(list, *currentWindowStart);
-        if (found!=NULL){
-            *currentWindowStart+=1;
-            ssize_t packet_length=found->pkt->length;
-            *currentWindowSize-=packet_length;
-            remove_packet(list, found);
-        }else{
-            return;
-        }
-    }
-    
-}
 
 void update_flow_window(uint16_t* flow_window){
     if (*flow_window+500<MAX_WINDOW){
@@ -238,6 +273,7 @@ void get_header(Packet* pkt, uint16_t seq, uint16_t ack, uint16_t length, uint16
     pkt->length=length;
     pkt->window=flow_window;
     pkt->flags=flags;
+    pkt->unused=0;
 }
 
 
@@ -286,36 +322,36 @@ bool receiver_verify_packet(Packet *pkt) {
     return (parity == 0);
 }
 
-void retransmission(PacketList* input, uint16_t currentWindowStart, int sockfd, struct sockaddr_in* addr, socklen_t addr_length){
-   ////fprintf(stderr, "retransmission entered");
-    PacketNode* start=input->head;
-    if (start==NULL){
-        return;
-    }
-    while (start!=NULL && difftime(time(NULL), start->send_time) >= 1.0){
-        int packet_length=ntohs(start->pkt->length); //Sent Packet are encoded
-        sendto(sockfd, start->pkt, sizeof(Packet)+packet_length, 0, addr, addr_length);
-        start->send_time=time(NULL);
-        start=start->next;
-    }
+// void retransmission(PacketList* input, uint16_t currentWindowStart, int sockfd, struct sockaddr_in* addr, socklen_t addr_length){
+//    ////fprintf(stderr, "retransmission entered");
+//     PacketNode* start=input->head;
+//     if (start==NULL){
+//         return;
+//     }
+//     while (start!=NULL && difftime(time(NULL), start->send_time) >= 1.0){
+//         int packet_length=ntohs(start->pkt->length); //Sent Packet are encoded
+//         sendto(sockfd, start->pkt, sizeof(Packet)+packet_length, 0, addr, addr_length);
+//         start->send_time=time(NULL);
+//         start=start->next;
+//     }
 
-}
+// }
 
-void send_sync(PacketList* inputBuffer, bool* client_sync, uint16_t inputSeq, uint16_t* currentWindowEnd, uint16_t flowWindow, int sockfd, struct sockaddr_in* addr, socklen_t addr_length){
+void send_sync(PacketList* inputBuffer, bool* client_sync, uint16_t inputSeq, uint16_t flowWindow, int sockfd, struct sockaddr_in* addr, socklen_t addr_length){
     Packet* sync_packet = (Packet*)malloc(sizeof(Packet));
     uint16_t flags=get_flags(*client_sync, 0, 0); //flags setting required
     *client_sync=false;
     // //fprintf(stderr, "Sync flag: flag = %u", flags);
-    get_header(sync_packet, inputSeq, 5678, sizeof(*sync_packet), 1012, flags);
+    get_header(sync_packet, inputSeq, 5678, 0, 1012, flags);
     uint8_t parity=compute_parity(sync_packet, sizeof(Packet), SEND);
     if (parity==1){
         sync_packet->flags ^= ((uint16_t)1 << 2);
     }
     uint8_t result;
+    enqueuePacket(inputBuffer, sync_packet, 0); 
     encode(sync_packet);
     sendto(sockfd, sync_packet, sizeof(Packet), 0, addr, addr_length);
-    *currentWindowEnd+=1;
-    enqueuePacket(inputBuffer, sync_packet, 0); 
+    decode(sync_packet);
 //    //fprintf(stderr, "Client Sync packet(No data):  inputSeq = %zd, flowWindow = %zd\n", inputSeq, flowWindow);
 }
 
@@ -337,12 +373,14 @@ void send_sync_ack(bool* server_sync, uint16_t inputSeq, uint16_t outputSeq, boo
     ////fprintf(stderr, "Syn-ack packet:  seq = %hu, flag = %hu, ack = %hu\n", inputSeq, flag, outputSeq);
 }
 
-void send_ack(uint16_t outputSeq, int type, int sockfd, struct sockaddr_in* addr, socklen_t addr_length){
+void send_ack(uint16_t outputSeq, int type, int sockfd, struct sockaddr_in* addr, socklen_t addr_length, uint16_t* flowWindow){
     Packet* pkt=(Packet*)malloc(sizeof(Packet));
     pkt->seq=0;
     pkt->ack=outputSeq;
     uint16_t flag=get_flags(0, true, 0);   //ack will guarantee no sync flag
     pkt->flags=flag;
+    pkt->window=*flowWindow;
+    pkt->length=0;
     uint8_t parity=compute_parity(pkt, sizeof(Packet), SEND);
     if (parity==1){
         pkt->flags ^= ((uint16_t)1 << 2);
@@ -350,19 +388,23 @@ void send_ack(uint16_t outputSeq, int type, int sockfd, struct sockaddr_in* addr
     encode(pkt);
     sendto(sockfd, pkt, sizeof(Packet), 0, addr, addr_length);
     free(pkt);
-    ////fprintf(stderr, "Ack packet with no payload:  seq = %zd, flag = %d, ack = %zd\n", pkt->seq, flag, pkt->ack);
+    //fprintf(stderr, "Ack packet with no payload:  seq = %zd, flag = %d, ack = %zd\n", pkt->seq, flag, pkt->ack);
 }
 
 // Main function of transport layer; never quits
 void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
                  ssize_t (*input_p)(uint8_t*, size_t),
                  void (*output_p)(uint8_t*, size_t)) {
-    // fprintf(stderr, "Inside listen_loop\n");
+    ////fprintf(stderr, "Inside listen_loop\n");
     //Input/Output Buffer generation
+    setvbuf(stderr, NULL, _IONBF, 0); 
     PacketList inputBuffer;
     PacketList outputBuffer;
     initPacketList(&inputBuffer);
     initPacketList(&outputBuffer);
+
+    sending_queue queue;
+    initSendingQueue(&queue);
 
     //Flow window initailization
     uint16_t flowWindow=1012;
@@ -371,12 +413,12 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
     //Sender input and out buffer index
     srand(time(NULL));
     uint16_t inputSeq=rand()%1000;   
-    ////fprintf(stderr, "inputSeq initialized to %hu\n", inputSeq);     
+   //fprintf(stderr, "inputSeq initialized to %hu\n", inputSeq);     
     uint16_t outputSeq;          //initialized in syn_ack
 
     //Sender's current window
     uint16_t currentWindowStart=inputSeq;  //Initialized in syn_ack
-    uint16_t currentWindowEnd=inputSeq+1;
+    uint16_t currentWindowEnd=inputSeq-1;
 
     // socket address struct length used by recvfrom
     socklen_t addr_length=sizeof (*addr);
@@ -403,35 +445,36 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
     clock_gettime(CLOCK_MONOTONIC, &now);
 
     while (true){
-        //determine if the ack flag should be set
         bool ack=false;
-
-        // Place stdin into input buffer
         while ((bytes_read=input_p(buffer , MSS)) > 0){
-            Packet* new_pkt = (Packet*)malloc(sizeof(Packet) + bytes_read);
-            if (!new_pkt) {
+            Packet* stdin_pkt = (Packet*)malloc(sizeof(Packet) + bytes_read);
+            if (!stdin_pkt) {
                 perror("malloc for Packet");
                 exit(EXIT_FAILURE);
             }
-            memcpy(new_pkt->payload, buffer, bytes_read);
-            new_pkt->length = (uint16_t)bytes_read;  // Set length field, and possibly others.
-            new_pkt->seq=inputSeq;
+            memcpy(stdin_pkt->payload, buffer, bytes_read);
+            stdin_pkt->length = (uint16_t)bytes_read;  // Set length field, and possibly others.
+            stdin_pkt->seq=inputSeq;
+        //   fprintf(stderr, "Input read seq = %hu (hex): ", inputSeq);
+        //     for (int i = 0; i < stdin_pkt->length; i++) {
+        //         // Print each byte in two-digit hex format
+        //       fprintf(stderr, "%02X ", (unsigned char)stdin_pkt->payload[i]);
+        //     }
+        //   fprintf(stderr, "\n");
             inputSeq+=1;
-            ////fprintf(stderr, "inputSeq: %hu\n", inputSeq);  
-            enqueuePacket(&inputBuffer, new_pkt, 0);    //Pakcet to send are already correctly encoded
-            fprintf(stderr, "Taking in input:  packet_length = %hu, inputSeq = %hu\n", new_pkt->length, inputSeq);
+            enqueuePacket(&inputBuffer, stdin_pkt, 0);    //Pakcet to send are already correctly encoded
         }
-        // fprintf(stderr, "bytes_read = %hu", bytes_read);
+
+
+
+
+
+
+
 
 
         //Receiving part
         while ((bytes_read = recvfrom(sockfd, pkt, sizeof(Packet) + MSS, 0, (struct sockaddr*) addr, &addr_length)) != -1) {
-            fprintf(stderr, "Inside receive loop\n");
-            uint8_t flag_parity=compute_parity(pkt, bytes_read, RECEIVE);
-            if (flag_parity!=0){
-                continue;   //if parity doesn't equal 0, drop the packet
-            }
-
             //Dynamically allocate receiver packet
             Packet* new_pkt = (Packet*)malloc(bytes_read);
             if (!new_pkt) {
@@ -439,11 +482,14 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
                 exit(EXIT_FAILURE);
             }
             memcpy(new_pkt, pkt, bytes_read);
+            decode(new_pkt);
+            uint8_t flag_parity=compute_parity(new_pkt, bytes_read, RECEIVE);
+            if (flag_parity!=0){
+                free(new_pkt);
+                continue;   //if parity doesn't equal 0, drop the packet
+            }
 
-            //place arriving packets into the output buffer
-            
-            ////fprintf(stderr, "Enqueuepacket, inputSeq: %hu\n", inputSeq); 
-            enqueuePacket(&outputBuffer, new_pkt, 1); //Received packet require ntohs
+            enqueuePacket(&outputBuffer, new_pkt, 0); //Received packet require ntohs
 
             //Extract the flag
             uint16_t flag=new_pkt->flags; // Flag value from some packet
@@ -453,43 +499,113 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
             if (syn || new_pkt->length>0){
                 ack=true;
             }
-            //fprintf(stderr, "Ack val: %d\n", ack); 
 
-            //1. print packets to standard output
-            //2. update the ack number (outputSeq)
-            //3. update the flow window
             if (type==0 && syn){//Server syn-ack
-                ////fprintf(stderr, "syn-ack start, inputSeq: %hu\n", inputSeq); 
                 syn_ack(new_pkt, &outputSeq, &flowWindow);  
-                ////fprintf(stderr, "Inside server response to sync: outputSeq = %zd, flowWindow = %zd\n", outputSeq, flowWindow);
                 server_sync=true;
                 outputSeq+=1; //Sync message takes account of control bytes
-                ////fprintf(stderr, "syn-ack end, inputSeq: %hu\n", inputSeq); 
             }else if (type==1 && syn){//Client (Respond to Server Sync)
-                ////fprintf(stderr, "Inside client response to sync before:  outputSeq = %zd, flowWindow = %zd\n", outputSeq, flowWindow);
                 syn_ack(new_pkt, &outputSeq, &flowWindow);
                 outputSeq+=1; //Sync message takes account of control bytes
-                ////fprintf(stderr, "Inside client response to sync after:  outputSeq = %zd, flowWindow = %zd\n", outputSeq, flowWindow);
             }
+            uint16_t ack=new_pkt->ack;
+            uint16_t length=new_pkt->length;
             output(&outputBuffer, new_pkt, &outputSeq, &flowWindow, output_p);
-            //clear input buffer if the ariving packet is ack
-            ////fprintf(stderr, "update_input, inputSeq: %hu\n", inputSeq); 
-            update_input(&inputBuffer, new_pkt, &currentWindowStart, &currentWindowSize);
-            //Increment the flow window each time we successfully receive a packet from the other side
-            ////fprintf(stderr, "update_flow_window, inputSeq: %hu\n", inputSeq); 
+           if(ack_flag){
+                update_input(&inputBuffer, ack, &currentWindowStart, &currentWindowSize);
+           }
             update_flow_window(&flowWindow);
         }
-        // fprintf(stderr, "bytes_read = %hu", bytes_read);
 
-        //Sending part (new packets)
-       ////fprintf(stderr, "Sending part\n"); 
+
+
+
+
+
+
+
+
+
+
+        //When to send:
+        //1. Packet node in input buffer have never been sent before
+        //2. Timer expires for already sent node
+        PacketNode* node = inputBuffer.head;
+        while (node){   //if there is unsent node in the inputBuffer, send until there is no more or window size exceed
+            Packet* pktToSend = node->pkt;
+            uint16_t pkt_len  = pktToSend->length;
+            
+            // Check if there's enough "window space" left
+            if (currentWindowSize + pkt_len > flowWindow) {
+                // No more space; stop sending now
+                break;
+            }
+
+            //set flags
+            uint16_t flags;
+            if (type==1 && client_sync){        //Client sync
+                flags=get_flags(true, false, 0);
+                client_sync=false; 
+            }else if(type == 1 && syn){         //Server sync-ack
+                 flags=get_flags(true, true, 0); 
+            }else{                              //regular messages
+                flags=get_flags(false, ack, 0);
+            }
+            get_header(pktToSend, pktToSend->seq, outputSeq, pktToSend->length, flowWindow, flags);
+
+
+            // Compute parity, set if needed:
+            uint8_t p = compute_parity(pktToSend, sizeof(Packet) + pkt_len, SEND);
+            if (p == 1) {
+                pktToSend->flags ^= ((uint16_t)1 << 2);
+            }
+
+            currentWindowSize += pkt_len;
+
+            //sending packets
+            encode(pktToSend);
+            sendto(sockfd, pktToSend, sizeof(Packet) + pkt_len, 0, (struct sockaddr*)addr, &addr_length);
+            decode(pktToSend);
+
+            // Remove from inputBuffer (because it's now "sent")
+            // but we do NOT free the packet, we keep it in an "unacked" list
+            PacketNode* nextNode = node->next; // store so we don't lose it
+            remove_packet(&inputBuffer, node);
+
+            // Append it to "unackedList"
+            queue_node* unackedNode = (queue_node*)malloc(sizeof(queue_node));
+            unackedNode->pkt = pktToSend;
+            unackedNode->next = NULL;
+            unackedNode->previous = NULL;
+            unackedNode->send_time=time(NULL);
+
+
+            if (!queue.head) {
+                queue.head = unackedNode;
+                queue.tail = unackedNode;
+            } else {
+                unackedNode->previous = queue.tail;
+                queue.tail->next = unackedNode;
+                queue.tail       = unackedNode;
+            }
+    
+            node = nextNode;  // move on to next inputBuffer item
+        }
+
+  
+
+
+
+        
+
         PacketNode* next_packet_node=find(&inputBuffer, currentWindowEnd+1);
         if (next_packet_node==NULL){ //no more packets to send
             //Client sync with no payload
             if (client_sync && type==1){
                //fprintf(stderr, "Sending sync\n");  
-                send_sync(&inputBuffer, &client_sync, inputSeq, &currentWindowEnd, flowWindow, sockfd, addr, addr_length);
-               ////fprintf(stderr, "Finished Sending sync\n"); 
+               currentWindowEnd+=1;
+                send_sync(&inputBuffer, &client_sync, inputSeq, flowWindow, sockfd, addr, addr_length);
+              //fprintf(stderr, "Finished Sending sync\n"); 
             }
             //Server syn-ack with no payload
             else if(type==0 && syn){
@@ -499,42 +615,52 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
             //Ack when no payload
             else if (ack){
                 //fprintf(stderr, "sending ack: syn=%d\n", syn);
-                send_ack(outputSeq, client_sync, sockfd, addr, addr_length);
+                send_ack(outputSeq, client_sync, sockfd, addr, addr_length, &flowWindow);
             }
-            fprintf(stderr, "No data\n");
+           //fprintf(stderr, "No data\n");
             continue;
         }else{
             Packet* next_packet=next_packet_node->pkt;
             ssize_t packet_length=next_packet->length;
-
-            long elapsed_ns = (now.tv_sec - last_print_time.tv_sec) * 1000000000L + (now.tv_nsec - last_print_time.tv_nsec);
-            if (elapsed_ns >= 200000000 || last_print_time.tv_sec == 0) {
-                fprintf(stderr, "There is data, CurrentWindowEnd = %hu, currentWindowSize = %hu, packet_length = %hu, flowWindow = %hu\n", currentWindowEnd, currentWindowSize, packet_length, flowWindow);
-                last_print_time = now;
-            }
-
+           //fprintf(stderr, "Sent a packet, flowwindow = %hu, currentWindowsize = %hu, packet_length = %hu seq = %hu \n", flowWindow, currentWindowSize, next_packet->length, next_packet->seq);
             while (currentWindowSize + packet_length <= flowWindow){
-                fprintf(stderr, "Entered sending loop, CurrentWindowEnd = %hu\n", currentWindowEnd);
                 uint16_t flags;
                 if (type==1){   //Client
                     flags=get_flags(client_sync, ack, 0); //flags setting required
-                    client_sync=false;
+                    //fprintf(stderr, "Sending Sync packet flag, Sync: %d\n",ack, flags);
+                    fflush(stderr);
                 }else{          //Server
                      flags=get_flags(server_sync, ack, 0); //flags setting required
                      server_sync=false;
                 }
-                get_header(next_packet, currentWindowEnd, outputSeq, packet_length, flowWindow, flags);
+              //fprintf(stderr, "Sending message header, Seq: %hu, Window size: %hu, packet_length: %hu\n", currentWindowEnd+1,  flowWindow, packet_length);
+                get_header(next_packet, currentWindowEnd+1, outputSeq, packet_length, flowWindow, flags);
                 uint8_t parity=compute_parity(next_packet, sizeof(Packet)+packet_length, SEND);
                 if (parity==1){
                     next_packet->flags ^= ((uint16_t)1 << 2);
                 }
-                // fprintf(stderr, "Sending packets size: %hu\n", next_packet->length);
+               //fprintf(stderr, "Before including new packet window size = %hu\n", currentWindowSize);
+                currentWindowSize+=next_packet->length;
+               //fprintf(stderr, "After including new packet window size = %hu\n", currentWindowSize);
+                fprintf(stderr, "Sent a packet, packet_length = %hu, seq = %hu, window size = %hu, currentWindowEnd = %hu \n", next_packet->length, next_packet->seq, currentWindowSize, currentWindowEnd);
+                fprintf(stderr, "Payload (hex): ");
+                for (int i = 0; i < next_packet->length; i++) {
+                    // Print each byte in two-digit hex format
+                    fprintf(stderr, "%02X ", (unsigned char)next_packet->payload[i]);
+                }
+                fprintf(stderr, "\n");
+                if (client_sync){
+                    enqueuePacket(&inputBuffer, next_packet, 0);
+                   //fprintf(stderr, "Enqueued packet seq = %hu\n", next_packet->seq);
+                    client_sync=false;
+                }
                 encode(next_packet);
                 sendto(sockfd, next_packet, sizeof(Packet)+packet_length, 0, addr, addr_length);
-                next_packet_node->send_time=time(NULL);
+                decode(next_packet);
                 currentWindowEnd+=1;
-                currentWindowSize+=next_packet->length;
-                next_packet_node=find(&inputBuffer, currentWindowEnd+1);
+               //fprintf(stderr, "current window end: %hu\n", currentWindowEnd);
+                next_packet_node=find(&inputBuffer, currentWindowEnd);
+               //fprintf(stderr, "\n");
                 if (next_packet_node==NULL){
                     break;
                 }else{

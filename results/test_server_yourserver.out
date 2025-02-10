@@ -1,1 +1,18 @@
+Taking in input:  packet_length = 1012, inputSeq = 15
+Taking in input:  packet_length = 1012, inputSeq = 16
+Taking in input:  packet_length = 1012, inputSeq = 17
+Taking in input:  packet_length = 1012, inputSeq = 18
+Taking in input:  packet_length = 1012, inputSeq = 19
+Taking in input:  packet_length = 1012, inputSeq = 20
+Taking in input:  packet_length = 1012, inputSeq = 21
+Taking in input:  packet_length = 1012, inputSeq = 22
+Taking in input:  packet_length = 1012, inputSeq = 23
+Taking in input:  packet_length = 892, inputSeq = 24
+Inside receive loop
+There is data, CurrentWindowEnd = 15, currentWindowSize = 0, packet_length = 1012, flowWindow = 1512
+Entered sending loop, CurrentWindowEnd = 15
+Inside receive loop
+Inside receive loop
+Inside receive loop
+Inside receive loop
 Terminated

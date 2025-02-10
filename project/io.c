@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <sys/fcntl.h>
 #include <unistd.h>
+#include "consts.h"
 
 void init_io() {
     int flags = fcntl(STDIN_FILENO, F_GETFL);
@@ -10,6 +11,7 @@ void init_io() {
 
 ssize_t input_io(uint8_t* buf, size_t max_length) {
     ssize_t len = read(STDIN_FILENO, buf, max_length);
+    // fprintf(stderr, "Taking in input:  size = %zu\n", len);
     return len > 0 ? len : 0;
 }
 

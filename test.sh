@@ -1,3 +1,3 @@
-./helper test test_server_synack
-code ./results/test_server_synack_refclient.out
-code ./results/test_server_synack_yourserver.out
+./helper test test_client #Test using reference server
+code ./results/test_self_yourclient.out
+#code ./results/test_self_yourserver.out  

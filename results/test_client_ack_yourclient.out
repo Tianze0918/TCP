@@ -1,4 +1,3 @@
-No payloadsent packet flag = 5, packet length = 0
-Input read seq = 642 (hex): 
-Inside receive, sync flag = 1 
-Inside receive, sync flag = 0 
+retransmission triggered, seq = 999
+Inside receive, recvied packet seq = 400, length = 0, ack = 1000 
+400

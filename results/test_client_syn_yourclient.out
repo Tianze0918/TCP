@@ -1,3 +1,2 @@
-No payloadsent packet flag = 5, packet length = 0
-Input read seq = 221 (hex): 
-Inside receive, sync flag = 1 
+Inside receive, recvied packet seq = 400, length = 0, ack = 66 
+400

@@ -31,74 +31,6 @@ void handle_sigint(int sig) {
     exit(0);  // Exit the program gracefully
 }
 
-// typedef struct {
-//     packet packets[QUEUE_SIZE];
-//     int front;                   
-//     int rear;                    
-//     int count;                   
-// } pQueue;
-
-// void init_queue(pQueue *q) {
-//     q->front = 0;
-//     q->rear = 0;
-//     q->count = 0;
-// }
-
-// int enqueue(pQueue *q, packet *pkt) {
-//     if (q->count == QUEUE_SIZE) {
-//         printf("queue is already full\n");
-//         return -1; 
-//     }
-
-//     q->packets[q->rear] = *pkt; 
-//     q->rear = (q->rear + 1) % QUEUE_SIZE;
-//     q->count++;
-//     return 0;
-// }
-
-// int check_queue(pQueue *q, uint16_t seq) {
-//     for (int i; i < q->count; i++) {
-//         packet *pkt = &q->packets[i];
-//         if (pkt->seq < seq) {
-//             dequeue(q, pkt);
-//         }
-//     }
-// }
-
-// int dequeue(pQueue *q, packet *pkt) {
-//     if (q->count == 0) {
-//         printf("queue is empty\n");
-//         return -1; 
-//     }
-
-//     *pkt = q->packets[q->front];
-//     q->front = (q->front + 1) % QUEUE_SIZE;
-//     q->count--;
-//     return 0;
-// }
-
-// int send_packet(int sockfd, struct sockaddr_in *dest_addr, pQueue *q) {
-//     if (q->count == 0) {
-//         printf("no packets in queue\n");
-//         return -1;
-//     }
-
-//     packet pkt;
-//     if (dequeue(q, &pkt) == 0) {
-//         int sent_bytes = sendto(sockfd, &pkt, sizeof(packet), 0,
-//                                 (struct sockaddr *) dest_addr, sizeof(*dest_addr));
-//         if (sent_bytes < 0) {
-//             perror("sendto failed");
-//             return -1;
-//         }
-//         printf("sent packet with seq: %d\n", ntohs(pkt.seq));
-//     }
-
-//     return 0;
-// }
-
-
-
 // Each node holds a pointer to a packet.
 typedef struct PacketNode {
     Packet* pkt;
@@ -159,6 +91,7 @@ PacketNode* find_packet_node(PacketList* list, uint16_t seq){
 }
 
 void remove_queue_packet(sending_queue* list, queue_node* node){
+    // fprintf(stderr, "Clearing node seq = %hu\n", node->pkt->length);
     if (list->head==list->tail){
         free(list->head->pkt);
         free(list->head);
@@ -184,30 +117,27 @@ void remove_queue_packet(sending_queue* list, queue_node* node){
 
 void remove_buffer_packet(PacketList* list, PacketNode* node){
     if (list->head==list->tail){
-        free(list->head->pkt);
         free(list->head);
         list->head=NULL;
         list->tail=NULL;
     }else if (node==list->head){
         list->head=node->next;
         list->head->previous=NULL;
-        free(node->pkt);
         free(node);
     }else if(node==list->tail){
         list->tail=node->previous;
         list->tail->next=NULL;
-        free(node->pkt);
         free(node);
     }else{
         node->previous->next=node->next;
         node->next->previous=node->previous;
-        free(node->pkt);
         free(node);
     }
 }
 
 
 void output(PacketList* list, Packet* pkt, uint16_t *outputSeq, uint16_t* receiver_flowWindow, void (*output_p)(uint8_t*, size_t)){
+    fprintf(stderr, "%hu\n", *outputSeq);
    while (true){
         PacketNode* found=find_packet_node(list, *outputSeq);
         if (found!=NULL){
@@ -226,7 +156,9 @@ void output(PacketList* list, Packet* pkt, uint16_t *outputSeq, uint16_t* receiv
 }
 
 void update_sending_queue(sending_queue* sending_queue,  uint16_t ack, uint16_t* currentWindowSize){
+    //fprintf(stderr, "Updating sending queue node seq = %hu, ack = %hu\n", sending_queue->head->pkt->seq, ack);
       while ((sending_queue->head) && sending_queue->head->pkt->seq < ack){
+        //fprintf(stderr, "Removing sending queue node seq = %hu\n", sending_queue->head->pkt->seq);
         queue_node* headNode = sending_queue->head;
         *currentWindowSize -= headNode->pkt->length;
         remove_queue_packet(sending_queue, headNode);
@@ -359,18 +291,26 @@ bool receiver_verify_packet(Packet *pkt) {
 }
 
 void retransmission(sending_queue* input, int sockfd, struct sockaddr_in* addr, socklen_t addr_length){
-   ////fprintf(stderr, "retransmission entered");
     queue_node* start=input->head;
     if (start==NULL){
         return;
     }
-    while (start!=NULL){
+    if (start!=NULL){
+        // if (difftime(time(NULL), start->send_time) >= 1.0){
+        //     while (start!=NULL){
+        //         fprintf(stderr, "Sendingqueue seq = %hu\n", start->pkt->seq);
+        //         start=start->next;
+        //     }
+        //     fprintf(stderr, "\n");
+        // }
         if (difftime(time(NULL), start->send_time) >= 1.0){
+            fprintf(stderr, "retransmission triggered, seq = %hu\n", start->pkt->seq);
             int packet_length=start->pkt->length; //Sent Packet are encoded
+            encode(start->pkt);
             sendto(sockfd, start->pkt, sizeof(Packet)+packet_length, 0, addr, addr_length);
+            decode(start->pkt);
             start->send_time=time(NULL);
         }
-        start=start->next;
     }
 }
 
@@ -387,24 +327,6 @@ void no_payload_sync(uint16_t* inputSeq, sending_queue* queue, PacketList* input
     *inputSeq+=1;
     enqueuePacket(inputBuffer, stdin_pkt, 0);
 }
-
-// void send_sync(bool* client_sync, uint16_t inputSeq, uint16_t flowWindow, int sockfd, struct sockaddr_in* addr, socklen_t addr_length){
-//     Packet* sync_packet = (Packet*)malloc(sizeof(Packet));
-//     uint16_t flags=get_flags(*client_sync, 0, 0); //flags setting required
-//     *client_sync=false;
-//     // //fprintf(stderr, "Sync flag: flag = %u", flags);
-//     get_header(sync_packet, inputSeq, 5678, 0, 1012, flags);
-//     uint8_t parity=compute_parity(sync_packet, sizeof(Packet), SEND);
-//     if (parity==1){
-//         sync_packet->flags ^= ((uint16_t)1 << 2);
-//     }
-//     uint8_t result;
-//     enqueuePacket(inputBuffer, sync_packet, 0); 
-//     encode(sync_packet);
-//     sendto(sockfd, sync_packet, sizeof(Packet), 0, addr, addr_length);
-//     decode(sync_packet);
-// //    //fprintf(stderr, "Client Sync packet(No data):  inputSeq = %zd, flowWindow = %zd\n", inputSeq, flowWindow);
-// }
 
 void send_sync_ack(uint16_t inputSeq, uint16_t outputSeq, int sockfd, struct sockaddr_in* addr, socklen_t addr_length){
     Packet* pkt=(Packet*)malloc(sizeof(Packet));
@@ -497,7 +419,8 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
 
     while (true){
         bool ack=false;
-        while ((bytes_read=input_p(buffer , MSS)) > 0){
+        if ((bytes_read=input_p(buffer , MSS)) > 0){
+        // while ((bytes_read=input_p(buffer , MSS)) > 0){
             Packet* stdin_pkt = (Packet*)malloc(sizeof(Packet) + bytes_read);
             if (!stdin_pkt) {
                 perror("malloc for Packet");
@@ -511,13 +434,15 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
                 uint16_t flags=get_flags(true, false, 0);
                 stdin_pkt->flags=flags;
                 client_sync=false;
+               //frpintf(stderr, "Sync Packet have payload\n");
             }
-          fprintf(stderr, "Taking input, seq = %hu (hex): ", inputSeq);
+            ////frpintf(stderr, "Test started\n");
+         //frpintf(stderr, "Taking input, seq = %hu (hex): ", inputSeq);
             for (int i = 0; i < stdin_pkt->length; i++) {
                 // Print each byte in two-digit hex format
-              fprintf(stderr, "%02X ", (unsigned char)stdin_pkt->payload[i]);
+             //frpintf(stderr, "%02X ", (unsigned char)stdin_pkt->payload[i]);
             }
-          fprintf(stderr, "\n");
+         //frpintf(stderr, "\n");
             inputSeq+=1;
             enqueuePacket(&inputBuffer, stdin_pkt, 0);    //Pakcet to send are already correctly encoded
         }
@@ -529,9 +454,9 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
 
 
 
-
+        if ((bytes_read = recvfrom(sockfd, pkt, sizeof(Packet) + MSS, 0, (struct sockaddr*) addr, &addr_length)) != -1) {
         //Receiving part
-        while ((bytes_read = recvfrom(sockfd, pkt, sizeof(Packet) + MSS, 0, (struct sockaddr*) addr, &addr_length)) != -1) {
+        // while ((bytes_read = recvfrom(sockfd, pkt, sizeof(Packet) + MSS, 0, (struct sockaddr*) addr, &addr_length)) != -1) {
             //Dynamically allocate receiver packet
             Packet* new_pkt = (Packet*)malloc(bytes_read);
             if (!new_pkt) {
@@ -557,9 +482,8 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
                 ack=true;
             }
 
-            fprintf(stderr, "Inside receive, sync flag = %d \n", syn);
-
             uint16_t ack=new_pkt->ack;
+            fprintf(stderr, "Inside receive, recvied packet seq = %hu, length = %hu, ack = %hu \n", new_pkt->seq, new_pkt->length, ack);
             uint16_t length=new_pkt->length;
             if (ack==last_ack){
                 counter+=1;
@@ -568,20 +492,21 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
                 last_ack=ack;
             }
             if (type==0 && syn){//Server syn-ack
-                fprintf(stderr, "inside server's sync ack");
+               //frpintf(stderr, "inside server's sync ack");
                 syn_ack(new_pkt, &outputSeq, &flowWindow, &last_ack);  
                 outputSeq+=1; //Sync message takes account of control bytes
                 send_sync_ack(inputSeq, outputSeq, sockfd, addr, addr_length);
                 counter=1;
             }else if (type==1 && syn){//Client (Respond to Server Sync)
                 syn_ack(new_pkt, &outputSeq, &flowWindow, &last_ack);
-                outputSeq+=1; //Sync message takes account of control bytes
+                output(&outputBuffer, new_pkt, &outputSeq, &flowWindow, output_p);
+                // outputSeq+=1; //Sync message takes account of control bytes
                 send_ack(outputSeq+1, sockfd, addr, addr_length, &flowWindow);
                 counter=1;
-            }else if (new_pkt->seq > outputSeq){         //send an ack if arriving packet's sequence number > outputseq
+            }else if (new_pkt->seq >= outputSeq){         //send an ack if arriving packet's sequence number > outputseq
                 output(&outputBuffer, new_pkt, &outputSeq, &flowWindow, output_p);
                 send_ack(outputSeq, sockfd, addr, addr_length, &flowWindow);
-            }else if (new_pkt->seq <= outputSeq){
+            }else if (new_pkt->seq < outputSeq){
                 send_ack(outputSeq, sockfd, addr, addr_length, &flowWindow);
             }
            if(ack_flag){
@@ -600,7 +525,7 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
 
         //sync packet trigger with no payload
         if (client_sync){
-            fprintf(stderr, "No payload");
+           //frpintf(stderr, "No payload");
             no_payload_sync(&inputSeq, &queue, &inputBuffer);
             client_sync=false;
         }
@@ -609,9 +534,9 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
 
         //sending three duplicate
         if (counter==3){
-            fprintf(stderr, "Three duplicate: seq = %hu\n", last_ack);
+           //frpintf(stderr, "Three duplicate: seq = %hu\n", last_ack);
             if (queue.head==NULL){
-                fprintf(stderr, "three duplicate on empty queue");
+               //frpintf(stderr, "three duplicate on empty queue");
                 counter=0;
             }
             else{
@@ -642,7 +567,7 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
             uint16_t flags = pktToSend->flags;
             //if current packet is the sync packet, don't reset flags
             if (!decode_flags(flags)){
-                // fprintf(stderr, "decode flags\n");
+                ////frpintf(stderr, "decode flags\n");
                 flags=get_flags(false, false, 0);
             }
             get_header(pktToSend, pktToSend->seq, outputSeq, pktToSend->length, flowWindow, flags);
@@ -657,13 +582,13 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
             currentWindowSize += pkt_len;
 
             //sending packets
-            fprintf(stderr, "sent packet flag = %hu, packet length = %hu\n", pktToSend->flags, pktToSend->length);
-            fprintf(stderr, "Input read seq = %hu (hex): ", inputSeq);
+           //fprintf(stderr, "sent packet flag = %hu, packet length = %hu, packet seq=%hu\n", pktToSend->flags, pktToSend->length, pktToSend->seq);
+           //frpintf(stderr, "Input read seq = %hu (hex): ", inputSeq);
             for (int i = 0; i < pktToSend->length; i++) {
                 // Print each byte in two-digit hex format
-              fprintf(stderr, "%02X ", (unsigned char)pktToSend->payload[i]);
+             //frpintf(stderr, "%02X ", (unsigned char)pktToSend->payload[i]);
             }
-            fprintf(stderr, "\n");
+           //frpintf(stderr, "\n");
             encode(pktToSend);
             sendto(sockfd, pktToSend, sizeof(Packet) + pkt_len, 0, addr, addr_length);
             decode(pktToSend);
@@ -674,6 +599,7 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
             remove_buffer_packet(&inputBuffer, node);
 
             // Append it to "unackedList"
+            // Packet* copied_node=(Packet*)malloc(sizeof(Packet)+pktToSend->length);
             queue_node* unackedNode = (queue_node*)malloc(sizeof(queue_node));
             unackedNode->pkt = pktToSend;
             unackedNode->next = NULL;

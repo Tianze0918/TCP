@@ -1,30 +1,30 @@
-Inside receive, recvied packet seq = 800, length = 1012, ack = 752 
+Inside receive, recvied packet seq = 800, length = 1012, ack = 157 
 800
-Inside receive, recvied packet seq = 801, length = 1012, ack = 752 
+Inside receive, recvied packet seq = 801, length = 1012, ack = 157 
 801
-Inside receive, recvied packet seq = 802, length = 1000, ack = 753 
+Inside receive, recvied packet seq = 802, length = 1000, ack = 158 
 802
-Inside receive, recvied packet seq = 803, length = 1012, ack = 753 
+Inside receive, recvied packet seq = 803, length = 1012, ack = 158 
 803
-Inside receive, recvied packet seq = 804, length = 500, ack = 754 
+Inside receive, recvied packet seq = 804, length = 500, ack = 159 
 804
-Inside receive, recvied packet seq = 805, length = 1000, ack = 754 
+Inside receive, recvied packet seq = 805, length = 1000, ack = 159 
 805
-Inside receive, recvied packet seq = 806, length = 500, ack = 755 
+Inside receive, recvied packet seq = 806, length = 500, ack = 160 
 806
-Inside receive, recvied packet seq = 807, length = 1012, ack = 755 
+Inside receive, recvied packet seq = 807, length = 1012, ack = 160 
 807
-Inside receive, recvied packet seq = 808, length = 500, ack = 756 
+Inside receive, recvied packet seq = 808, length = 500, ack = 161 
 808
-Inside receive, recvied packet seq = 809, length = 500, ack = 756 
+Inside receive, recvied packet seq = 809, length = 500, ack = 161 
 809
-Inside receive, recvied packet seq = 810, length = 500, ack = 757 
+Inside receive, recvied packet seq = 810, length = 500, ack = 162 
 810
-Inside receive, recvied packet seq = 811, length = 1000, ack = 757 
+Inside receive, recvied packet seq = 811, length = 1000, ack = 162 
 811
-Inside receive, recvied packet seq = 812, length = 452, ack = 758 
+Inside receive, recvied packet seq = 812, length = 452, ack = 163 
 812
-Inside receive, recvied packet seq = 0, length = 0, ack = 759 
-Inside receive, recvied packet seq = 0, length = 0, ack = 760 
-Inside receive, recvied packet seq = 0, length = 0, ack = 761 
+Inside receive, recvied packet seq = 0, length = 0, ack = 164 
+Inside receive, recvied packet seq = 0, length = 0, ack = 165 
+Inside receive, recvied packet seq = 0, length = 0, ack = 166 
 Terminated

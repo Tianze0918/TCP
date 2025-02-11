@@ -1,36 +1,36 @@
-Inside receive, recvied packet seq = 800, length = 1012, ack = 0 
-retransmission triggered, seq = 858
-Inside receive, recvied packet seq = 801, length = 1012, ack = 860 
-801
-Inside receive, recvied packet seq = 802, length = 500, ack = 860 
-802
-Inside receive, recvied packet seq = 0, length = 0, ack = 860 
-Inside receive, recvied packet seq = 803, length = 1012, ack = 860 
-803
-Inside receive, recvied packet seq = 804, length = 500, ack = 860 
-804
-Inside receive, recvied packet seq = 805, length = 500, ack = 860 
-805
-Inside receive, recvied packet seq = 806, length = 500, ack = 861 
-806
-Inside receive, recvied packet seq = 0, length = 0, ack = 862 
-Inside receive, recvied packet seq = 807, length = 1012, ack = 862 
-807
-Inside receive, recvied packet seq = 808, length = 500, ack = 862 
-808
-Inside receive, recvied packet seq = 809, length = 500, ack = 863 
-809
-Inside receive, recvied packet seq = 810, length = 500, ack = 863 
-810
-Inside receive, recvied packet seq = 811, length = 1000, ack = 863 
-811
-Inside receive, recvied packet seq = 812, length = 500, ack = 864 
-812
-Inside receive, recvied packet seq = 813, length = 500, ack = 864 
-813
-Inside receive, recvied packet seq = 814, length = 452, ack = 865 
-814
-Inside receive, recvied packet seq = 0, length = 0, ack = 866 
-Inside receive, recvied packet seq = 0, length = 0, ack = 867 
-Inside receive, recvied packet seq = 0, length = 0, ack = 868 
+Inside receive, recvied packet seq = 700, length = 1012, ack = 0 
+700
+Payload
+payload_sync_ack
+Inside receive, recvied packet seq = 701, length = 1012, ack = 200 
+701
+Inside receive, recvied packet seq = 702, length = 500, ack = 200 
+702
+Inside receive, recvied packet seq = 703, length = 1012, ack = 200 
+703
+Inside receive, recvied packet seq = 704, length = 500, ack = 201 
+704
+Inside receive, recvied packet seq = 705, length = 500, ack = 201 
+705
+Inside receive, recvied packet seq = 706, length = 500, ack = 202 
+706
+Inside receive, recvied packet seq = 707, length = 1012, ack = 202 
+707
+Inside receive, recvied packet seq = 708, length = 1000, ack = 202 
+708
+Inside receive, recvied packet seq = 709, length = 500, ack = 203 
+709
+Inside receive, recvied packet seq = 0, length = 0, ack = 204 
+Inside receive, recvied packet seq = 710, length = 500, ack = 204 
+710
+Inside receive, recvied packet seq = 711, length = 1000, ack = 204 
+711
+Inside receive, recvied packet seq = 712, length = 500, ack = 205 
+712
+Inside receive, recvied packet seq = 0, length = 0, ack = 206 
+Inside receive, recvied packet seq = 713, length = 452, ack = 206 
+713
+Inside receive, recvied packet seq = 0, length = 0, ack = 207 
+Inside receive, recvied packet seq = 0, length = 0, ack = 208 
+Inside receive, recvied packet seq = 0, length = 0, ack = 209 
 Terminated

@@ -328,6 +328,13 @@ void no_payload_sync(uint16_t* inputSeq, sending_queue* queue, PacketList* input
     enqueuePacket(inputBuffer, stdin_pkt, 0);
 }
 
+void payload_sync_ack(PacketList* inputBuffer, uint16_t outputSeq){
+    fprintf(stderr, "payload_sync_ack\n");
+    PacketNode* head_Node=inputBuffer->head;
+    uint16_t flag=get_flags(true, true, 0);
+    head_Node->pkt->flags=flag;
+}
+
 void send_sync_ack(uint16_t inputSeq, uint16_t outputSeq, int sockfd, struct sockaddr_in* addr, socklen_t addr_length){
     Packet* pkt=(Packet*)malloc(sizeof(Packet));
     pkt->seq=inputSeq;
@@ -342,7 +349,7 @@ void send_sync_ack(uint16_t inputSeq, uint16_t outputSeq, int sockfd, struct soc
     encode(pkt);
     sendto(sockfd, pkt, sizeof(Packet), 0, addr, addr_length);
     free(pkt);
-   (stderr, "Syn-ack packet:  seq = %hu, flag = %hu, ack = %hu\n", inputSeq, flag, outputSeq);
+//    (stderr, "Syn-ack packet:  seq = %hu, flag = %hu, ack = %hu\n", inputSeq, flag, outputSeq);
 }
 
 void send_ack(uint16_t outputSeq, int sockfd, struct sockaddr_in* addr, socklen_t addr_length, uint16_t* flowWindow){
@@ -465,8 +472,9 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
             }
             memcpy(new_pkt, pkt, bytes_read);
             decode(new_pkt);
-            uint8_t flag_parity=compute_parity(new_pkt, bytes_read, RECEIVE);
+            uint8_t flag_parity=compute_parity(new_pkt, sizeof(Packet)+new_pkt->length, RECEIVE);
             if (flag_parity!=0){
+            // if (flag_parity!=0 || bytes_read < sizeof(Packet) || new_pkt->length > (bytes_read - sizeof(Packet))){
                 free(new_pkt);
                 continue;   //if parity doesn't equal 0, drop the packet
             }
@@ -494,9 +502,15 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
             if (type==0 && syn){//Server syn-ack
                //frpintf(stderr, "inside server's sync ack");
                 syn_ack(new_pkt, &outputSeq, &flowWindow, &last_ack);  
-                outputSeq+=1; //Sync message takes account of control bytes
-                send_sync_ack(inputSeq, outputSeq, sockfd, addr, addr_length);
-                counter=1;
+                output(&outputBuffer, new_pkt, &outputSeq, &flowWindow, output_p);
+                if(inputBuffer.head==NULL){
+                    send_sync_ack(inputSeq, outputSeq+1, sockfd, addr, addr_length);    //No payload sync ack
+                    inputSeq+=1; //Sync message takes account of control bytes
+                }else{
+                    fprintf(stderr, "Payload\n");
+                    payload_sync_ack(&inputBuffer, outputSeq);
+                } 
+                counter=0;
             }else if (type==1 && syn){//Client (Respond to Server Sync)
                 syn_ack(new_pkt, &outputSeq, &flowWindow, &last_ack);
                 output(&outputBuffer, new_pkt, &outputSeq, &flowWindow, output_p);
@@ -584,10 +598,10 @@ void listen_loop(int sockfd, struct sockaddr_in* addr, int type,
             //sending packets
            //fprintf(stderr, "sent packet flag = %hu, packet length = %hu, packet seq=%hu\n", pktToSend->flags, pktToSend->length, pktToSend->seq);
            //frpintf(stderr, "Input read seq = %hu (hex): ", inputSeq);
-            for (int i = 0; i < pktToSend->length; i++) {
-                // Print each byte in two-digit hex format
-             //frpintf(stderr, "%02X ", (unsigned char)pktToSend->payload[i]);
-            }
+            // for (int i = 0; i < pktToSend->length; i++) {
+            //     // Print each byte in two-digit hex format
+            //  //frpintf(stderr, "%02X ", (unsigned char)pktToSend->payload[i]);
+            // }
            //frpintf(stderr, "\n");
             encode(pktToSend);
             sendto(sockfd, pktToSend, sizeof(Packet) + pkt_len, 0, addr, addr_length);

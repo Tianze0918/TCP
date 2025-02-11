@@ -30,80 +30,71 @@
         },
         {
             "name": "Reliable Data Transport (Your Client <-> Your Server): Small file (10 KB)",
-            "score": 0.057000000000000384,
+            "score": 20.0,
             "max_score": 20,
-            "status": "failed",
-            "output": "Your server didn't produce the expected result.\nWe inputted 10000 bytes in your client and we received 6072 bytes with a percent difference of 99.75%\nYour client didn't produce the expected result.\nWe inputted 10000 bytes in your server and we received 8988 bytes with a percent difference of 99.68%\n",
+            "status": "passed",
             "number": "2.1"
         },
         {
             "name": "Reliable Data Transport (Your Client <-> Your Server): Medium file (100 KB), Drop (5%)",
-            "score": 0.006999999999999229,
+            "score": 20.0,
             "max_score": 20,
-            "status": "failed",
-            "output": "Your server didn't produce the expected result.\nWe inputted 100000 bytes in your client and we received 16192 bytes with a percent difference of 99.94%\nYour client didn't produce the expected result.\nWe inputted 100000 bytes in your server and we received 3036 bytes with a percent difference of 99.99%\n",
+            "status": "passed",
             "number": "2.2"
         },
         {
             "name": "Reliable Data Transport (Your Client <-> Reference Server): Small file (10 KB)",
-            "score": 0.0,
+            "score": 5.0,
             "max_score": 5,
-            "status": "failed",
-            "output": "Your client didn't send data back to our server correctly.\nWe inputted 10000 bytes in your client and we received 0 bytes with a percent difference of 100.0%\nYour client didn't receive data from our server correctly.\nWe sent 10000 bytes and your client received 0 bytes with a percent difference of 100.0%\n",
+            "status": "passed",
             "number": "2.3"
         },
         {
             "name": "Reliable Data Transport (Reference Client <-> Your Server): Small file (10 KB)",
-            "score": 0.007750000000000257,
+            "score": 5.0,
             "max_score": 5,
-            "status": "failed",
-            "output": "Your server didn't receive data from our client correctly.\nWe sent 10000 bytes and your server received 8524 bytes with a percent difference of 99.69%\nYour server didn't send data back to our client correctly.\nWe inputted 10000 bytes in your server and we received 0 bytes with a percent difference of 100.0%\n",
+            "status": "passed",
             "number": "2.4"
         },
         {
             "name": "Reliable Data Transport (Your Client <-> Reference Server): Medium file (100 KB), Drop/Corrupt (5%)",
-            "score": 0.0,
+            "score": 5.0,
             "max_score": 5,
-            "status": "failed",
-            "output": "Your client didn't send data back to our server correctly.\nWe inputted 100000 bytes in your client and we received 0 bytes with a percent difference of 100.0%\nYour client didn't receive data from our server correctly.\nWe sent 100000 bytes and your client received 0 bytes with a percent difference of 100.0%\n",
+            "status": "passed",
             "number": "2.5"
         },
         {
             "name": "Reliable Data Transport (Reference Client <-> Your Server): Medium file (100 KB), Drop/Corrupt (5%)",
-            "score": 0.001000000000000445,
+            "score": 5.0,
             "max_score": 5,
-            "status": "failed",
-            "output": "Your server didn't receive data from our client correctly.\nWe sent 100000 bytes and your server received 12024 bytes with a percent difference of 99.96%\nYour server didn't send data back to our client correctly.\nWe inputted 100000 bytes in your server and we received 0 bytes with a percent difference of 100.0%\n",
+            "status": "passed",
             "number": "2.6"
         },
         {
             "name": "Reliable Data Transport (Your Client <-> Reference Server): Large file (500 KB), Drop (1%)",
-            "score": 0.0,
+            "score": 5.0,
             "max_score": 5,
-            "status": "failed",
-            "output": "Your client didn't send data back to our server correctly.\nWe inputted 500000 bytes in your client and we received 0 bytes with a percent difference of 100.0%\nYour client didn't receive data from our server correctly.\nWe sent 500000 bytes and your client received 0 bytes with a percent difference of 100.0%\n",
+            "status": "passed",
             "number": "2.7"
         },
         {
             "name": "Reliable Data Transport (Reference Client <-> Your Server): Large file (500 KB), Drop (1%)",
-            "score": 0.0,
+            "score": 5.0,
             "max_score": 5,
-            "status": "failed",
-            "output": "Your server didn't receive data from our client correctly.\nWe sent 500000 bytes and your server received 0 bytes with a percent difference of 100.0%\nYour server didn't send data back to our client correctly.\nWe inputted 500000 bytes in your server and we received 0 bytes with a percent difference of 100.0%\n",
+            "status": "passed",
             "number": "2.8"
         },
         {
             "name": "Reliable Data Transport (Your Client <-> Reference Server): Ginormous file (2 MB)",
-            "score": 0.0,
+            "score": 5.0,
             "max_score": 5,
-            "status": "failed",
-            "output": "Your client didn't send data back to our server correctly.\nWe inputted 2000000 bytes in your client and we received 0 bytes with a percent difference of 100.0%\nYour client didn't receive data from our server correctly.\nWe sent 2000000 bytes and your client received 0 bytes with a percent difference of 100.0%\n",
+            "status": "passed",
             "number": "2.9"
         }
     ],
     "leaderboard": [],
     "visibility": "visible",
-    "execution_time": "294.81",
-    "score": 15.072750000000001,
+    "execution_time": "114.96",
+    "score": 90.0,
     "test_output_format": "md"
 }

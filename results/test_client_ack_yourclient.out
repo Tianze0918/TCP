@@ -1,3 +1,2 @@
-retransmission triggered, seq = 999
-Inside receive, recvied packet seq = 400, length = 0, ack = 1000 
-400
+Inside receive, recvied packet seq = 700, length = 0, ack = 336 
+700

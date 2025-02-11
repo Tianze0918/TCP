@@ -1,0 +1,4 @@
+Inside receive, sync flag = 1 
+inside server's sync ackNo payloadsent packet flag = 5, packet length = 0
+Input read seq = 221 (hex): 
+Inside receive, sync flag = 0 
